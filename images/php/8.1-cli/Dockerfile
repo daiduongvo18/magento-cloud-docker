@@ -6,6 +6,7 @@ ARG MAGENTO_ROOT=/app
 ARG COMPOSER_ALLOW_SUPERUSER=1
 ARG COMPOSER_HOME=/composer
 ARG CRONTAB=""
+ARG SONAR_SCANNER_HOME=/opt/sonar-scanner
 
 ENV COMPOSER_MEMORY_LIMIT -1
 ENV COMPOSER_ALLOW_SUPERUSER ${COMPOSER_ALLOW_SUPERUSER}
@@ -16,6 +17,8 @@ ENV DEBUG false
 ENV MAGENTO_RUN_MODE production
 ENV SENDMAIL_PATH /dev/null
 ENV PHPRC ${MAGENTO_ROOT}/php.ini
+ENV SONAR_SCANNER_HOME=${SONAR_SCANNER_HOME}
+ENV SONAR_USER_HOME=${SONAR_SCANNER_HOME}/.sonar
 
 ENV PHP_EXTENSIONS bcmath bz2 calendar exif gd gettext intl mysqli opcache pdo_mysql redis soap sockets sodium sysvmsg sysvsem sysvshm xsl zip pcntl
 
@@ -41,6 +44,8 @@ RUN apt-get update \
   unzip \
   vim \
   openssh-client \
+  rsync \
+  openjdk-11-jre \
   libbz2-dev \
   libjpeg62-turbo-dev \
   libpng-dev \
@@ -69,6 +74,14 @@ RUN npm install -g grunt-cli
 RUN curl -L -O https://github.com/mailhog/mhsendmail/releases/download/v0.2.0/mhsendmail_linux_amd64 \
     && sudo chmod +x mhsendmail_linux_amd64 \
     && sudo mv mhsendmail_linux_amd64 /usr/local/bin/mhsendmail
+
+# Install Sonar Scanner
+RUN curl -L -O https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.7.0.2747.zip \
+    && unzip sonar-scanner-cli-4.7.0.2747.zip -d /opt \
+    && mv /opt/sonar-scanner-4.7.0.2747 /opt/sonar-scanner \
+    && chmod +x /opt/sonar-scanner/bin/sonar-scanner \
+    && ln -sf /opt/sonar-scanner/bin/sonar-scanner /usr/local/bin/sonar-scanner \
+    && rm -f sonar-scanner-cli-4.7.0.2747.zip
 
 # Configure the gd library
 RUN docker-php-ext-configure \
@@ -183,6 +196,8 @@ RUN ["chmod", "+x", \
 RUN mkdir -p ${MAGENTO_ROOT}
 
 VOLUME ${MAGENTO_ROOT}
+
+run mkdir /root/.ssh
 
 RUN chown -R www:www /usr/local /var/www /var/log /usr/local/etc/php/conf.d /etc/cron.d ${MAGENTO_ROOT} ${COMPOSER_HOME}
 RUN if [[ ! -z "${CRONTAB}" ]]; then echo "${CRONTAB}" > /etc/cron.d/magento && touch /var/log/cron.log ; fi
